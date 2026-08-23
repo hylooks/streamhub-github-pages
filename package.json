@@ -1,0 +1,20 @@
+{
+  "name": "streamhub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "hls.js": "^1.6.13",
+    "nuxt": "^3.17.5",
+    "vue": "^3.5.13",
+    "better-sqlite3": "^11.10.0",
+    "zod": "^3.25.76",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {}
+}
