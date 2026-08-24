@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { Pool } from 'pg'
 import { join } from 'node:path'
 
-const usePostgres = Boolean(process.env.DATABASE_PASSWORD)
+const usePostgres = Boolean(process.env.DATABASE_URL)
 
 function pgSql(sql: string) {
   let i = 0
