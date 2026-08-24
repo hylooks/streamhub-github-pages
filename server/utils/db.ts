@@ -1,46 +1,36 @@
+import Database from 'better-sqlite3'
 import { Pool } from 'pg'
 import { join } from 'node:path'
 
-// Deteksi otomatis apakah menggunakan Postgres (Railway/Vercel)
-const usePostgres = Boolean(process.env.DATABASE_URL || process.env.DATABASE_PASSWORD)
+const usePostgres = Boolean(process.env.DATABASE_PASSWORD)
 
 function pgSql(sql: string) {
   let i = 0
   return sql.replace(/\?/g, () => `$${++i}`)
 }
 
-// Safe-load better-sqlite3 hanya jika berjalan di Lokal/SQLite
-let sqlite: any = null
-if (!usePostgres) {
-  try {
-    const Database = require('better-sqlite3')
-    const dbPath = process.env.SQLITE_PATH || join(process.cwd(), 'streamhub.sqlite')
-    sqlite = new Database(dbPath)
-    sqlite.pragma('journal_mode = WAL')
-    sqlite.pragma('foreign_keys = ON')
-    sqlite.exec(`
+const sqlite = usePostgres ? null : (() => {
+  const dbPath = process.env.SQLITE_PATH || join(process.cwd(), 'streamhub.sqlite')
+  const d = new Database(dbPath)
+  d.pragma('journal_mode = WAL')
+  d.pragma('foreign_keys = ON')
+  d.exec(`
 CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL,expires_at INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,description TEXT DEFAULT '',sport TEXT DEFAULT 'Sports',thumbnail TEXT DEFAULT '',start_time TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'upcoming',stream_url TEXT DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY AUTOINCREMENT,user_email TEXT DEFAULT '',event_name TEXT NOT NULL,channel TEXT DEFAULT '',event_date TEXT DEFAULT '',request_type TEXT DEFAULT 'stream',status TEXT NOT NULL DEFAULT 'pending',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 `)
-    const cols = sqlite.prepare('PRAGMA table_info(requests)').all() as Array<{name:string}>
-    if(!cols.some(c=>c.name==='user_email')) sqlite.exec("ALTER TABLE requests ADD COLUMN user_email TEXT DEFAULT ''")
-  } catch (e) {
-    console.error('Failed to initialize SQLite:', e)
-  }
-}
+  const cols=d.prepare('PRAGMA table_info(requests)').all() as Array<{name:string}>
+  if(!cols.some(c=>c.name==='user_email')) d.exec("ALTER TABLE requests ADD COLUMN user_email TEXT DEFAULT ''")
+  return d
+})()
 
-// Konfigurasi Postgres (support string DATABASE_URL bawaan Railway)
 const pool = usePostgres ? new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ...(process.env.DATABASE_URL ? {} : {
-    user: process.env.DATABASE_USER || 'postgres',
-    password: process.env.DATABASE_PASSWORD,
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT || 5432),
-    database: process.env.DATABASE_NAME || 'streamhub',
-  }),
+  user: process.env.DATABASE_USER || 'postgres',
+  password: process.env.DATABASE_PASSWORD,
+  host: process.env.DATABASE_HOST || 'localhost',
+  port: Number(process.env.DATABASE_PORT || 5432),
+  database: process.env.DATABASE_NAME || 'streamhub',
   ssl: process.env.DATABASE_SSL === 'false'
     ? false
     : { rejectUnauthorized: false },
@@ -90,5 +80,4 @@ const db = {
   isPostgres: usePostgres,
   async close(){ if(pool) await pool.end(); else sqlite?.close() }
 }
-
 export default db
