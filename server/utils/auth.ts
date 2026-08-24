@@ -12,7 +12,6 @@ export async function getSession(event:any):Promise<Session|null>{const id=getCo
 export async function clearSession(event:any){const id=getCookie(event,COOKIE);if(id)await db.prepare('DELETE FROM sessions WHERE id=?').run(id);deleteCookie(event,COOKIE,{path:'/'})}
 export async function requireUser(event:any){const s=await getSession(event);if(!s)throw createError({statusCode:401,statusMessage:'Login required'});return s}
 export async function requireAdmin(event:any){const s=await getSession(event);if(!s||s.role!=='admin')throw createError({statusCode:403,statusMessage:'Admin access required'});return s}
-export async function ensureDemoAccounts(){const count=await db.prepare('SELECT COUNT(*) as count FROM users').get() as any;if(Number(count?.count||0)>0)return;await db.prepare('INSERT INTO users (email,password_hash,role) VALUES (?,?,?)').run('admin@example.com',await hashPassword('admin123'),'admin');await db.prepare('INSERT INTO users (email,password_hash,role) VALUES (?,?,?)').run('user@example.com',await hashPassword('user123'),'user')}
 export async function ensureProductionAdmin() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase()
   const password = process.env.ADMIN_PASSWORD
