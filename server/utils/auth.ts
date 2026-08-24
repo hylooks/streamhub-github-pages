@@ -1,15 +1,69 @@
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto'
-import { promisify } from 'node:util'
-import db from '~/server/utils/db'
-const scrypt=promisify(scryptCb)
-export type SessionRole='user'|'admin'
-export type Session={id:string;userId:number;role:SessionRole;email:string}
-const COOKIE='streamhub_session'; const SESSION_TTL=60*60*24*7
-export async function hashPassword(password:string){const salt=randomBytes(16).toString('hex');const derived=await scrypt(password,salt,64) as Buffer;return `scrypt$${salt}$${derived.toString('hex')}`}
-export async function verifyPassword(password:string,stored:string){const p=stored.split('$');if(p.length!==3||p[0]!=='scrypt')return false;const derived=await scrypt(password,p[1],64) as Buffer;const expected=Buffer.from(p[2],'hex');return expected.length===derived.length&&timingSafeEqual(expected,derived)}
-export async function setSession(event:any,userId:number,role:SessionRole,email:string){const id=randomBytes(32).toString('base64url');const expires=Math.floor(Date.now()/1000)+SESSION_TTL;await db.prepare('INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)').run(id,userId,expires);setCookie(event,COOKIE,id,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:SESSION_TTL});return{role,email}}
-export async function getSession(event:any):Promise<Session|null>{const id=getCookie(event,COOKIE);if(!id)return null;const row=await db.prepare(`SELECT s.id,s.user_id as userId,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at>?`).get(id,Math.floor(Date.now()/1000)) as any;return row?(row as Session):null}
-export async function clearSession(event:any){const id=getCookie(event,COOKIE);if(id)await db.prepare('DELETE FROM sessions WHERE id=?').run(id);deleteCookie(event,COOKIE,{path:'/'})}
-export async function requireUser(event:any){const s=await getSession(event);if(!s)throw createError({statusCode:401,statusMessage:'Login required'});return s}
-export async function requireAdmin(event:any){const s=await getSession(event);if(!s||s.role!=='admin')throw createError({statusCode:403,statusMessage:'Admin access required'});return s}
-export async function ensureDemoAccounts(){const count=await db.prepare('SELECT COUNT(*) as count FROM users').get() as any;if(Number(count?.count||0)>0)return;await db.prepare('INSERT INTO users (email,password_hash,role) VALUES (?,?,?)').run('admin@example.com',await hashPassword('admin123'),'admin');await db.prepare('INSERT INTO users (email,password_hash,role) VALUES (?,?,?)').run('user@example.com',await hashPassword('user123'),'user')}
+import crypto from 'node:crypto'
+import db from './db'
+
+const SALT_LEN = 16
+const KEY_LEN = 64
+
+// 1. Hashing Password yang Aman & Kompatibel
+export async function hashPassword(password: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const salt = crypto.randomBytes(SALT_LEN).toString('hex')
+    crypto.scrypt(password, salt, KEY_LEN, (err, derivedKey) => {
+      if (err) reject(err)
+      resolve(`${salt}:${derivedKey.toString('hex')}`)
+    })
+  })
+}
+
+export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!storedHash || !storedHash.includes(':')) return resolve(false)
+    const [salt, key] = storedHash.split(':')
+    crypto.scrypt(password, salt, KEY_LEN, (err, derivedKey) => {
+      if (err) return resolve(false)
+      resolve(crypto.timingSafeEqual(Buffer.from(key, 'hex'), derivedKey))
+    })
+  })
+}
+
+// 2. Insert Akun Demo (Kompatibel PostgreSQL & SQLite)
+export async function ensureDemoAccounts() {
+  try {
+    const adminEmail = 'admin@streamhub.com'
+    const existingAdmin = await db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail)
+    
+    if (!existingAdmin) {
+      const defaultPasswordHash = await hashPassword('admin123')
+      await db.prepare(
+        'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)'
+      ).run(adminEmail, defaultPasswordHash, 'admin')
+      console.log('✅ Demo Admin Account Created: admin@streamhub.com / admin123')
+    }
+  } catch (err) {
+    console.error('Error in ensureDemoAccounts:', err)
+  }
+}
+
+// 3. Handling Session Cookie (HTTPS Safe)
+export async function setSession(event: any, userId: number | string, role: string, email: string) {
+  const sessionId = crypto.randomBytes(32).toString('hex')
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 hari
+
+  // Save to DB
+  await db.prepare(
+    'INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)'
+  ).run(sessionId, userId, expiresAt)
+
+  // Set Cookie ke Browser
+  setCookie(event, 'streamhub_session', sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60
+  })
+
+  return {
+    success: true,
+    user: { id: userId, email, role }
+  }
+}
