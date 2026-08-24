@@ -26,11 +26,7 @@ CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY AUTOINCREMENT,user_e
 })()
 
 const pool = usePostgres ? new Pool({
-  user: process.env.DATABASE_USER || 'postgres',
-  password: process.env.DATABASE_PASSWORD,
-  host: process.env.DATABASE_HOST || 'localhost',
-  port: Number(process.env.DATABASE_PORT || 5432),
-  database: process.env.DATABASE_NAME || 'streamhub',
+  connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === 'false'
     ? false
     : { rejectUnauthorized: false },
