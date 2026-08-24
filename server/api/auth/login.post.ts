@@ -1,5 +1,5 @@
 import db from '~/server/utils/db'
-import { ensureDemoAccounts, setSession, verifyPassword } from '~/server/utils/auth'
+import { ensureProductionAdmin, setSession, verifyPassword } from '~/server/utils/auth'
 
 const attempts = new Map<string, { count: number; reset: number }>()
 const WINDOW = 15 * 60 * 1000
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const password = String(body?.password || '')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 1 || password.length > 200) throw createError({ statusCode: 400, statusMessage: 'Invalid login input' })
 
-  await ensureDemoAccounts()
+  await ensureProductionAdmin()
   const account = await db.prepare('SELECT id,email,password_hash,role FROM users WHERE email=?').get(email) as any
   const valid = account ? await verifyPassword(password, account.password_hash) : false
   if (!valid) {
