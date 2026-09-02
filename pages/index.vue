@@ -17,7 +17,7 @@ const featured = computed(() => live.value[0] || upcoming.value[0] || vod.value[
           <div class="flex items-center gap-2 text-xs font-black uppercase tracking-[.22em] text-indigo-300"><span class="h-2 w-2 rounded-full bg-indigo-400"></span> Live & on demand</div>
           <h1 class="mt-4 text-4xl font-black tracking-tight sm:text-6xl">Every event.<br><span class="text-indigo-400">One streaming hub.</span></h1>
           <p class="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">Watch live events, discover what's coming next, and revisit your VOD library from one clean experience.</p>
-          <div class="mt-7 flex flex-wrap gap-3"><NuxtLink to="/events" class="btn-primary">Browse events</NuxtLink><NuxtLink to="/request" class="btn-secondary">Request an event</NuxtLink></div>
+          <div class="mt-7 flex flex-wrap gap-3"><NuxtLink to="/events" class="btn-primary">Browse events</NuxtLink></div>
         </div>
         <div v-if="featured" class="relative min-h-[260px] overflow-hidden lg:min-h-full">
           <img v-if="featured.thumbnail" :src="featured.thumbnail" :alt="featured.title" class="h-full w-full object-cover opacity-75">

@@ -1,11 +1,20 @@
 export default defineNuxtRouteMiddleware(async () => {
-  const { data, error } = await useFetch('/api/auth/me')
+  // GitHub Pages akan berjalan sebagai frontend saja.
+  // Pemeriksaan session dilakukan di browser.
+  if (import.meta.server) {
+    return
+  }
 
-  if (error.value || !data.value?.authenticated) {
+  const supabase = useSupabase()
+
+  const { data } = await supabase.auth.getUser()
+
+  if (!data.user) {
     return navigateTo('/login')
   }
 
-  if (data.value.role !== 'admin') {
-    return navigateTo('/events')
+  if (data.user.email !== 'celosiarae26@gmail.com') {
+    await supabase.auth.signOut()
+    return navigateTo('/login')
   }
 })

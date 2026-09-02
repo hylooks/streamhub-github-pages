@@ -1,5 +1,87 @@
 <script setup lang="ts">
-const email = ref('admin@example.com'); const password=ref('admin123'); const error=ref(''); const loading=ref(false)
-async function login(){error.value='';loading.value=true;try{const result=await $fetch<{role:'admin'|'user'}>('/api/auth/login',{method:'POST',body:{email:email.value,password:password.value}});await navigateTo(result.role==='admin'?'/admin':'/events')}catch(e:any){error.value=e?.data?.message||'Login gagal'}finally{loading.value=false}}
+const supabase = useSupabase()
+
+const email = ref('')
+const password = ref('')
+const error = ref('')
+const loading = ref(false)
+
+async function login() {
+  error.value = ''
+  loading.value = true
+
+  try {
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      email: email.value,
+      password: password.value
+    })
+
+    if (loginError) {
+      throw loginError
+    }
+
+    if (!data.user) {
+  throw new Error('Login gagal: Supabase tidak mengembalikan user.')
+}
+
+if (data.user.email !== 'celosiarae26@gmail.com') {
+  await supabase.auth.signOut()
+  throw new Error('Akun ini bukan akun admin.')
+}
+
+await navigateTo('/admin')
+  } catch (e: any) {
+    error.value = e?.message || 'Login gagal'
+  } finally {
+    loading.value = false
+  }
+}
 </script>
-<template><div class="mx-auto grid max-w-4xl overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 shadow-2xl md:grid-cols-2"><div class="hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-10 md:flex md:flex-col md:justify-between"><div><div class="text-xl font-black">STREAM<span class="text-indigo-400">HUB</span></div><h1 class="mt-16 text-4xl font-black leading-tight">Your events,<br><span class="text-indigo-400">beautifully organized.</span></h1><p class="mt-5 text-slate-300">Live events, upcoming shows, and VOD in one place.</p></div><p class="text-xs muted">Authorized content only.</p></div><div class="p-7 sm:p-10"><p class="text-xs font-black uppercase tracking-[.22em] text-indigo-400">Welcome back</p><h1 class="mt-2 text-3xl font-black">Sign in</h1><form @submit.prevent="login" class="mt-7 space-y-4"><input v-model="email" class="input" placeholder="Email" autocomplete="email"><input v-model="password" type="password" class="input" placeholder="Password" autocomplete="current-password"><button :disabled="loading" class="btn-primary w-full disabled:opacity-50">{{loading?'Signing in...':'Sign in'}}</button></form><p v-if="error" class="mt-4 text-sm text-red-400">{{error}}</p><div class="mt-6 rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs muted"><p><strong class="text-slate-200">Admin:</strong> admin@example.com / admin123</p><p class="mt-1"><strong class="text-slate-200">User:</strong> user@example.com / user123</p></div></div></div></template>
+
+<template>
+  <div class="mx-auto max-w-md">
+    <div class="rounded-3xl border border-slate-800 bg-slate-950 p-7 shadow-2xl sm:p-10">
+      <p class="text-xs font-black uppercase tracking-[.22em] text-indigo-400">
+        StreamHub
+      </p>
+
+      <h1 class="mt-2 text-3xl font-black">
+        Admin Sign in
+      </h1>
+
+      <p class="mt-2 text-sm muted">
+        Sign in to manage events.
+      </p>
+
+      <form @submit.prevent="login" class="mt-7 space-y-4">
+        <input
+          v-model="email"
+          class="input"
+          placeholder="Admin email"
+          autocomplete="email"
+          required
+        >
+
+        <input
+          v-model="password"
+          type="password"
+          class="input"
+          placeholder="Password"
+          autocomplete="current-password"
+          required
+        >
+
+        <button
+          :disabled="loading"
+          class="btn-primary w-full disabled:opacity-50"
+        >
+          {{ loading ? 'Signing in...' : 'Sign in' }}
+        </button>
+      </form>
+
+      <p v-if="error" class="mt-4 text-sm text-red-400">
+        {{ error }}
+      </p>
+    </div>
+  </div>
+</template>

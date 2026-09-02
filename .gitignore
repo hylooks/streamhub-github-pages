@@ -7,3 +7,5 @@ node_modules/
 *.log
 streamhub.sqlite
 streamhub-backup.sqlite
+streamhub.sqlite.old
+dist/
