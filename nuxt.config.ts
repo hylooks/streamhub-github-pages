@@ -1,8 +1,11 @@
 export default defineNuxtConfig({
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss'],
-  css: ['~/assets/main.css'],
+    css: ['~/assets/main.css'],
   ssr: false,
+  app: {
+    baseURL: '/streamhub-github-pages/'
+  },
   runtimeConfig: {
     public: {
       appName: 'StreamHub',
